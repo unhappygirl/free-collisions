@@ -1,2 +1,2 @@
 # magic-collisions
-A collision engine written in python. progress
+A collision engine written in python. WIP
