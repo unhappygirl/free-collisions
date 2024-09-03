@@ -5,6 +5,8 @@ from core import logger, console_handler
 from core.lines import *
 from core.polygons import *
 
+from numpy.random import random_sample, randint
+
 
 from logging import DEBUG
 import itertools
@@ -12,7 +14,7 @@ import itertools
 console_handler.setLevel(DEBUG)
 
 
-CIRCLE_RADIUS = 6
+CIRCLE_RADIUS = 2
 
 
 colors = {
@@ -65,13 +67,13 @@ def draw_line(l: Line, pysurface: pygame.Surface, color, axis=False):
     p2 = (-w // 2, l.find_y(-w // 2))
     ay = (0, l.find_y(0))
     ax = (l.find_x(0), 0)
+    try:
+        pygame.draw.line(pysurface, color, ctps(p1, w, h), ctps(p2, w, h), width=1)
+    except TypeError:
+        logger.debug(f"error at with points: {ctps(p1, w, h), ctps(p2, w, h)}")
     if axis:
         pygame.draw.circle(pysurface, colors["magenta"], ctps(ax, w, h), CIRCLE_RADIUS)
         pygame.draw.circle(pysurface, colors["magenta"], ctps(ay, w, h), CIRCLE_RADIUS)
-    try:
-        pygame.draw.line(pysurface, color, ctps(p1, w, h), ctps(p2, w, h))
-    except TypeError:
-        logger.debug(f"error at with points: {ctps(p1, w, h), ctps(p2, w, h)}")
 
 
 def draw_ls(ls: LineSegment, pysurface: pygame.Surface, color):
@@ -90,9 +92,6 @@ class TestFrame:
     def clear_screen(self):
         self.screen.fill(colors["white"])
         self.screen.fill(colors["black"])
-
-    def cartesian_to_mine(self, point):
-        return cartesian_to_pygame_screen(point, *self.size)
 
     def draw_axes(self):
         w, h = self.size
@@ -134,62 +133,85 @@ class TestController:
         ): None,  # Placeholder as Circle handling isn't implemented
     }
 
+    def random_lines(self, k):
+        lines = []
+        for _ in range(k):
+            direction = random_sample(2)
+            point = random_sample(2) * (self.testframe.size[0] / 2)
+            lines.append(Line(direction=direction, point=point))
+        return lines
+
     def __init__(self, structures, testframe: TestFrame) -> None:
         self.structures = structures
         self.testframe = testframe
+        self.drawers = {
+            np.ndarray: lambda p: pygame.draw.circle(
+                self.testframe.screen,
+                colors["orange"],
+                cartesian_to_pygame_screen(p, *self.testframe.size),
+                CIRCLE_RADIUS,
+            ),
+            Line: lambda line: draw_line(
+                line, self.testframe.screen, colors["cyan"], axis=False
+            ),
+            LineSegment: lambda ls: draw_ls(ls, self.testframe.screen, colors["cyan"]),
+            SimpleConvexPolygon: lambda poly: draw_polygon(
+                poly, self.testframe.screen, colors["red"]
+            ),
+        }
 
     def collision_testing(self):
-        for comb in itertools.combinations(self.structures):
+        for comb in itertools.combinations(self.structures, 2):
             func = self.collision_functions[frozenset(map(type, comb))]
             s1, s2 = comb
             try:
-                func(s1, s2)
+                c = func(s1, s2)
             except:
-                func(s2, s1)
+                c = func(s2, s1)
+            
+            dfunc = self.drawers[type(c)]
+            dfunc(c)
 
     def draw_structures(self):
         for s in self.structures:
-            pass
+            func = self.drawers[type(s)]
+            func(s)
+
+    def draw_all(self):
+        self.testframe.draw_axes()
+        self.draw_structures()
+        self.collision_testing()
+
+    def handle_input(self, mstate, kstate):
+        mx, my, *pressed = mstate
+        if pressed[0]:
+            for s in self.structures:
+                if type(s) is Line:
+                    s.rotate(math.pi / 360)
+
+    def mainloop(self, framerate):
+        clock = pygame.time.Clock()
+        while True:
+            pygame.event.pump()
+            mstate = pygame.mouse.get_pos() + pygame.mouse.get_pressed()
+            print(mstate)
+            kstate = pygame.key.get_pressed()
+            self.handle_input(mstate, kstate)
+            self.draw_all()
+            pygame.display.flip()
+            clock.tick(framerate)
+            self.testframe.clear_screen()
 
 
 def main():
-    import random
-
-    a = TestFrame((800, 800))
-    myline = Line((1.0, 1.0), (0.0, 0.0))
-    mypoly = SimpleConvexPolygon.generate_n_polygon(
-        n=random.randint(3, 10), r=random.randint(50, 300)
+    mytestframe = TestFrame((800, 800))
+    mycontroller = TestController(
+        [],
+        mytestframe,
     )
-    clock = pygame.time.Clock()
-    while True:
-        pygame.event.pump()
-        ins = SimpleConvexPolygonCollisions.polygon_line(mypoly, myline)
-        a.draw_axes()
-        draw_line(myline, a.screen, color=colors["cyan"])
-        draw_polygon(mypoly, a.screen)
-        for i in ins:
-            pygame.draw.circle(
-                a.screen, colors["green"], a.cartesian_to_mine(i), CIRCLE_RADIUS
-            )
-        pygame.display.flip()
-        mpos = np.array(
-            pygame_screen_to_cartesian(pygame.mouse.get_pos(), *a.screen.get_size())
-        )
-        if pygame.mouse.get_pressed()[0]:
-            myline.translate(mpos - myline.known_point)
-        else:
-            update_structure(
-                myline,
-                reinitialize=True,
-                point=(0.0, 0.0),
-                direction=mpos - myline.direction,
-            )
+    mycontroller.structures += mycontroller.random_lines(5)
 
-        a.clear_screen()
-        clock.tick(60)
-
-        if pygame.event.get() == pygame.QUIT:
-            break
+    mycontroller.mainloop(framerate=60)
 
 
 if __name__ == "__main__":

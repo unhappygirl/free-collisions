@@ -39,3 +39,4 @@ def rotate_around(angle, rp, p):
     p -= rp
     p = p.dot(rotation_matrix_2d(angle)) 
     p += rp
+    return p

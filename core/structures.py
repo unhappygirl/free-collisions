@@ -1,5 +1,5 @@
 from . import *
-from .auxiliary import rotation_matrix_2d, normalize_vector, rotate_around
+from .auxiliary import normalize_vector, rotate_around
 from . import math
 
 BASIS = [np.array((1.0, 0.0)), np.array((0.0, 1.0))]
