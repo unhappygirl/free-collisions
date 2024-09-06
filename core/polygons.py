@@ -34,7 +34,7 @@ class SimpleConvexPolygonCollisions:
         polygons = poly1, poly2
         tested_normals, all_ranges = [], []
 
-        for n in normals:
+        for n in sum(map(lambda p: p.outnormals, polygons), start=[]):
             checked = False
             for t in tested_normals:
                 if are_collinear(t, n):
