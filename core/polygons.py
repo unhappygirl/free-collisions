@@ -1,10 +1,14 @@
 from .lines import LineCollisions
 from .structures import SimpleConvexPolygon, Line, LineSegment
 from . import np
-from .auxiliary import min_max, ranges_overlap
+from .auxiliary import min_max, ranges_overlap, are_collinear
 
 
 class SimpleConvexPolygonCollisions:
+    EDGE_TO_EDGE = 1
+    POINT_TO_EDGE = 2
+    POINT_TO_POINT = 3
+    
     @staticmethod
     def polygon_point(polygon: SimpleConvexPolygon, point):
         for i, ls in enumerate(polygon.segments):
@@ -28,12 +32,14 @@ class SimpleConvexPolygonCollisions:
     @staticmethod
     def polygon_polygon_SAT(poly1: SimpleConvexPolygon, poly2: SimpleConvexPolygon):
         polygons = poly1, poly2
-        normals = poly1.outnormals + poly2.outnormals
-        tested_normals = []
-        all_ranges = []
+        tested_normals, all_ranges = [], []
 
         for n in normals:
-            if n in tested_normals:
+            checked = False
+            for t in tested_normals:
+                if are_collinear(t, n):
+                    checked = True
+            if checked:
                 continue
             ranges = []
             for poly in polygons:

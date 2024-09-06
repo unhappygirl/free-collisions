@@ -14,7 +14,7 @@ import itertools
 console_handler.setLevel(DEBUG)
 
 
-CIRCLE_RADIUS = 2
+CIRCLE_RADIUS = 5
 
 
 colors = {
@@ -36,6 +36,11 @@ colors = {
 }
 
 
+def swap(t: tuple):
+    t = (t[1], t[0])
+    return t
+
+
 def cartesian_to_pygame_screen(cartesian_point, sw, sh):
     x, y = cartesian_point
     sx = int(sw / 2 + x)
@@ -50,6 +55,15 @@ def pygame_screen_to_cartesian(screen_point, sw, sh):
     y = sh / 2 - sy
 
     return (x, y)
+
+
+def draw_point(p: np.ndarray, pysurface: pygame.Surface):
+    pygame.draw.circle(
+        pysurface,
+        colors["orange"],
+        cartesian_to_pygame_screen(p, *pysurface.get_size()),
+        CIRCLE_RADIUS,
+    )
 
 
 def draw_polygon(
@@ -106,31 +120,22 @@ class TestFrame:
 
 class TestController:
     collision_functions = {
-        frozenset(
-            {SimpleConvexPolygon, Line}
-        ): SimpleConvexPolygonCollisions.polygon_line,
-        frozenset(
-            {SimpleConvexPolygon, LineSegment}
-        ): SimpleConvexPolygonCollisions.polygon_line,
-        frozenset(
-            {SimpleConvexPolygon, SimpleConvexPolygon}
+        (SimpleConvexPolygon, Line): SimpleConvexPolygonCollisions.polygon_line,
+        (SimpleConvexPolygon, LineSegment): SimpleConvexPolygonCollisions.polygon_line,
+        (
+            SimpleConvexPolygon,
+            SimpleConvexPolygon,
         ): SimpleConvexPolygonCollisions.polygon_polygon_SAT,
-        frozenset({LineSegment, Line}): LineCollisions.segment_line,
-        frozenset({LineSegment, LineSegment}): LineCollisions.segment_segment,
-        frozenset({Line, Line}): LineCollisions.line_line,
-        frozenset({Line, LineSegment}): LineCollisions.segment_line,
-        frozenset(
-            {Circle, Line}
+        (LineSegment, Line): LineCollisions.segment_line,
+        (LineSegment, LineSegment): LineCollisions.segment_segment,
+        (Line, Line): LineCollisions.line_line,
+        (Circle, Line): None,  # Placeholder as Circle handling isn't implemented
+        (Circle, LineSegment): None,  # Placeholder as Circle handling isn't implemented
+        (
+            Circle,
+            SimpleConvexPolygon,
         ): None,  # Placeholder as Circle handling isn't implemented
-        frozenset(
-            {Circle, LineSegment}
-        ): None,  # Placeholder as Circle handling isn't implemented
-        frozenset(
-            {Circle, SimpleConvexPolygon}
-        ): None,  # Placeholder as Circle handling isn't implemented
-        frozenset(
-            {Circle, Circle}
-        ): None,  # Placeholder as Circle handling isn't implemented
+        (Circle, Circle): None,  # Placeholder as Circle handling isn't implemented
     }
 
     def random_lines(self, k):
@@ -141,16 +146,23 @@ class TestController:
             lines.append(Line(direction=direction, point=point))
         return lines
 
+    def random_polygons(self, k):
+        polygons = []
+        for _ in range(k):
+            poly = SimpleConvexPolygon.generate_n_polygon(
+                n=randint(3, 6),
+                r=randint(40, 100),
+                center=random_sample(2) * (self.testframe.size[0] / 2),
+            )
+            polygons.append(poly)
+        return polygons
+
     def __init__(self, structures, testframe: TestFrame) -> None:
         self.structures = structures
         self.testframe = testframe
         self.drawers = {
-            np.ndarray: lambda p: pygame.draw.circle(
-                self.testframe.screen,
-                colors["orange"],
-                cartesian_to_pygame_screen(p, *self.testframe.size),
-                CIRCLE_RADIUS,
-            ),
+            bool: lambda c: c,
+            np.ndarray: lambda p: draw_point(p, self.testframe.screen),
             Line: lambda line: draw_line(
                 line, self.testframe.screen, colors["cyan"], axis=False
             ),
@@ -159,16 +171,18 @@ class TestController:
                 poly, self.testframe.screen, colors["red"]
             ),
         }
+        dp = self.drawers[np.ndarray]
+        self.drawers[list] = lambda l: [dp(p) for p in l]
 
     def collision_testing(self):
         for comb in itertools.combinations(self.structures, 2):
-            func = self.collision_functions[frozenset(map(type, comb))]
-            s1, s2 = comb
-            try:
-                c = func(s1, s2)
-            except:
-                c = func(s2, s1)
-            
+            args = tuple(map(type, comb))
+            if args not in self.collision_functions:
+                comb = swap(comb)
+                args = swap(args)
+            func = self.collision_functions[args]
+            c = func(*comb)
+
             dfunc = self.drawers[type(c)]
             dfunc(c)
 
@@ -183,18 +197,31 @@ class TestController:
         self.collision_testing()
 
     def handle_input(self, mstate, kstate):
-        mx, my, *pressed = mstate
+        mpos, pressed = mstate
         if pressed[0]:
             for s in self.structures:
-                if type(s) is Line:
-                    s.rotate(math.pi / 360)
+                t = type(s)
+                if t is SimpleConvexPolygon:
+                    if SimpleConvexPolygonCollisions.polygon_point(s, mpos):
+                        s.translate(mpos-s.center)
+                        return
+                elif t is Line:
+                    if LineCollisions.line_point(s, mpos, atol=50):
+                        s.translate(mpos-s.known_point)
+                        return
 
     def mainloop(self, framerate):
         clock = pygame.time.Clock()
         while True:
             pygame.event.pump()
-            mstate = pygame.mouse.get_pos() + pygame.mouse.get_pressed()
-            print(mstate)
+            mstate = (
+                np.array(
+                    pygame_screen_to_cartesian(
+                        pygame.mouse.get_pos(), *self.testframe.size
+                    )
+                ),
+                pygame.mouse.get_pressed(),
+            )
             kstate = pygame.key.get_pressed()
             self.handle_input(mstate, kstate)
             self.draw_all()
@@ -209,7 +236,8 @@ def main():
         [],
         mytestframe,
     )
-    mycontroller.structures += mycontroller.random_lines(5)
+    mycontroller.structures += mycontroller.random_polygons(2)
+    mycontroller.structures += mycontroller.random_lines(2)
 
     mycontroller.mainloop(framerate=60)
 

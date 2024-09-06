@@ -48,7 +48,11 @@ class LineSegment(Line):
 
 
 class Circle:
-    pass
+    def __init__(self, center, radius) -> None:
+        self.center = center
+        self.radius = radius
+        
+    
 
 
 class SimpleConvexPolygon:
@@ -90,6 +94,12 @@ class SimpleConvexPolygon:
     def get_nth_side_points(self, n):
         side_indices = self.side_indices[n]
         return self.fetch_side(side_indices)
+    
+    def translate(self, tvec):
+        new_points = []
+        for p in self.points:
+            new_points.append(p + tvec)
+        self.__init__(new_points, self.side_indices)
 
     def rotate(self, a, point):
         new_points = []

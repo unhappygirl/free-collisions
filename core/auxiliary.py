@@ -19,6 +19,11 @@ def distance(p1, p2):
     _distance = np.linalg.norm(p1_to_p2)
     return _distance
 
+def are_collinear(v1, v2):
+    v13 = np.array(list(v1)+[0])
+    v23 = np.array(list(v2)+[0])
+    cross = np.cross(v13, v23)
+    return not cross.any()
 
 def normalize_vector(v: np.ndarray):
     mag = np.linalg.norm(v)

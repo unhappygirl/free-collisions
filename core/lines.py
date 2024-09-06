@@ -39,7 +39,8 @@ class LineCollisions:
         k = s.dot(diff)/s.dot(s)
         # Check if the difference lies within the bounds of the segment's length
         if 0 <= k <= 1:
-            logger.debug(f"inside class {__class__}, function segment_point: k is  {k}")
+            pass
+            #logger.debug(f"inside class {__class__}, function segment_point: k is  {k}")
         return 0 <= k <= 1
 
     @staticmethod
