@@ -1,10 +1,10 @@
+from . import np
 from . import *
 from .auxiliary import normalize_vector, rotate_around
 from . import math
 
 BASIS = [np.array((1.0, 0.0)), np.array((0.0, 1.0))]
 ORIGIN = np.zeros(2)
-
 
 class Line:
     def __init__(self, direction, point) -> None:
@@ -51,13 +51,54 @@ class Circle:
     def __init__(self, center, radius) -> None:
         self.center = center
         self.radius = radius
-        
-    
+
+
+side_names = {
+    3: "triangle",
+    4: "quadrilateral",
+    5: "pentagon",
+    6: "hexagon",
+    7: "heptagon",
+    8: "octagon",
+    9: "nonagon",
+    10: "decagon",
+    11: "hendecagon",
+    12: "dodecagon",
+    13: "triskaidecagon",
+    14: "tetrakaidecagon",
+    15: "pentadecagon",
+    16: "hexakaidecagon",
+    17: "heptakaidecagon",
+    18: "octakaidecagon",
+    19: "enneakaidecagon",
+    20: "icosagon",
+    21: "icosikaihenagon",
+    22: "icosikaidigon",
+    23: "icosikaitrigon",
+    24: "icosikaitetragon",
+    25: "icosikaipentagon",
+    26: "icosikaihexagon",
+    27: "icosikaiheptagon",
+    28: "icosikaioctagon",
+    29: "icosikaienneagon",
+    30: "triacontagon",
+    31: "triacontakaihenagon",
+    32: "triacontakaidigon",
+    33: "triacontakaitrigon",
+    34: "triacontakaitetragon",
+    35: "triacontakaipentagon",
+    36: "triacontakaihexagon",
+    37: "triacontakaiheptagon",
+    38: "triacontakaioctagon",
+    39: "triacontakaienneagon",
+    40: "tetracontagon",
+}
 
 
 class SimpleConvexPolygon:
     def __init__(self, points, sides) -> None:
         self.points = list(points)
+        self.points = [np.array(p) for p in self.points]
         self.side_indices = sides
         self.sides = len(self.side_indices)
         self.fetch_side = lambda t: (self.points[t[0]], self.points[t[1]])
@@ -94,7 +135,7 @@ class SimpleConvexPolygon:
     def get_nth_side_points(self, n):
         side_indices = self.side_indices[n]
         return self.fetch_side(side_indices)
-    
+
     def translate(self, tvec):
         new_points = []
         for p in self.points:
@@ -107,11 +148,50 @@ class SimpleConvexPolygon:
             new_points.append(rotate_around(a, rp=point, p=p))
         self.__init__(new_points, sides=self.sides)
 
+    def __repr__(self):
+        return f"<{side_names[self.sides]} at {self.center}>"
 
-def update_structure(structre, reinitialize=False, **kwargs):
+    def __str__(self):
+        return self.__repr__()
+
+
+def update_structure(structure, reinitialize=False, **kwargs):
     if reinitialize:
-        return structre.__init__(**kwargs)
-    attrs = structre.__dict__
+        return structure.__init__(**kwargs)
+    attrs = structure.__dict__
     for key in kwargs:
         attrs[key] = kwargs[key]
-    structre.__init__()
+    structure.__init__()
+
+
+class Collision:
+    types_attributes = {
+        np.ndarray: "point",
+        bool: "status",
+        list: "points",
+        dict: "details",
+    }
+
+    def __init__(self, *args) -> None:
+        for arg in args:
+            t = type(arg)
+            if t not in __class__.types_attributes:
+                continue
+            self.__dict__[self.types_attributes[t]] = arg
+        if self.details:
+            self.__dict__.update(self.details)
+
+    def __getattr__(self, item):
+        if item in __class__.types_attributes.values():
+            return None
+        elif self.details and item not in self.details:
+            raise AttributeError(item)
+
+    def __bool__(self):
+        return bool(self.status)
+    
+    def __repr__(self):
+        return f"Collision({self.__dict__})"
+    
+    def __str__(self):
+        return self.__repr__()

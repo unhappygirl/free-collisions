@@ -1,13 +1,10 @@
 import pygame
 
-from core.structures import *
+from core._types import *
 from core import logger, console_handler
 from core.lines import *
 from core.polygons import *
-
 from numpy.random import random_sample, randint
-
-
 from logging import DEBUG
 import itertools
 
@@ -161,7 +158,6 @@ class TestController:
         self.structures = structures
         self.testframe = testframe
         self.drawers = {
-            bool: lambda c: c,
             np.ndarray: lambda p: draw_point(p, self.testframe.screen),
             Line: lambda line: draw_line(
                 line, self.testframe.screen, colors["cyan"], axis=False
@@ -171,8 +167,29 @@ class TestController:
                 poly, self.testframe.screen, colors["red"]
             ),
         }
-        dp = self.drawers[np.ndarray]
-        self.drawers[list] = lambda l: [dp(p) for p in l]
+
+    def draw_collision(self, collision: Collision):
+        # logger.debug(f"drawing collision object {collision}")
+        if collision.point is not None:
+            self.drawers[np.ndarray](collision.point)
+            if collision.penetration_vector is not None:
+                try:
+                    pygame.draw.line(
+                        self.testframe.screen,
+                        colors["yellow"],
+                        cartesian_to_pygame_screen(
+                            collision.point, *self.testframe.size
+                        ),
+                        cartesian_to_pygame_screen(
+                            collision.point + collision.penetration_vector,
+                            *self.testframe.size,
+                        ),
+                    )
+                except:
+                    return
+        if collision.points is not None:
+            for p in collision.points:
+                self.drawers[np.ndarray](p)
 
     def collision_testing(self):
         for comb in itertools.combinations(self.structures, 2):
@@ -182,9 +199,9 @@ class TestController:
                 args = swap(args)
             func = self.collision_functions[args]
             c = func(*comb)
-
-            dfunc = self.drawers[type(c)]
-            dfunc(c)
+            if c:
+                # logger.debug(f"collision found for {args}!")
+                self.draw_collision(c)
 
     def draw_structures(self):
         for s in self.structures:
@@ -203,11 +220,12 @@ class TestController:
                 t = type(s)
                 if t is SimpleConvexPolygon:
                     if SimpleConvexPolygonCollisions.polygon_point(s, mpos):
-                        s.translate(mpos-s.center)
+                        s.translate(mpos - s.center)
                         return
                 elif t is Line:
-                    if LineCollisions.line_point(s, mpos, atol=50):
-                        s.translate(mpos-s.known_point)
+                    c = LineCollisions.line_point(s, mpos, atol=50)
+                    if c:
+                        s.translate(mpos - s.known_point)
                         return
 
     def mainloop(self, framerate):
@@ -236,8 +254,8 @@ def main():
         [],
         mytestframe,
     )
-    mycontroller.structures += mycontroller.random_polygons(2)
-    mycontroller.structures += mycontroller.random_lines(2)
+    mycontroller.structures += mycontroller.random_polygons(10)
+    mycontroller.structures += mycontroller.random_lines(0)
 
     mycontroller.mainloop(framerate=60)
 
