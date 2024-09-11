@@ -153,6 +153,12 @@ class SimpleConvexPolygon:
 
     def __str__(self):
         return self.__repr__()
+    
+class BoundingBox(SimpleConvexPolygon):
+    pass
+
+class BoundingCircle(SimpleConvexPolygon):
+    pass
 
 
 def update_structure(structure, reinitialize=False, **kwargs):

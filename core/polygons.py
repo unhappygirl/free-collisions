@@ -70,11 +70,12 @@ class SimpleConvexPolygonCollisions:
         collision_structures = []
         products1 = [pnormal.dot(p) for p in poly1.points]
         products2 = [pnormal.dot(p) for p in poly2.points]
-        print(products1, products2)
         for d in min_range:
             pack = (products1, poly1) if d in products1 else (products2, poly2)
             products, poly = pack
-            indices = [idx for idx, d_ in enumerate(products) if np.isclose(d_, d, 0.01)]
+            indices = [
+                idx for idx, d_ in enumerate(products) if np.isclose(d_, d, 0.01)
+            ]
             if len(indices) == 2:
                 points = map(lambda idx: poly.points[idx], indices)
                 collision_structures.append(LineSegment(*points))
@@ -82,15 +83,11 @@ class SimpleConvexPolygonCollisions:
                 collision_structures.append(poly.points[indices[0]])
 
         s1, s2 = collision_structures
-        cpoint = s1 if type(s2) is LineSegment else s2
-        if type(cpoint) is LineSegment:
-            collision_type = __class__.EDGE_TO_EDGE
+        t1, t2 = type(s1), type(s2)
+        if t1 is LineSegment and t2 is LineSegment:
             cpoint = None
         else:
-            collision_type = __class__.POINT_TO_EDGE
-        logger.debug(
-            f"cpoint: {cpoint}, s1: {type(s1)}, s2: {type(s2)}, min_range: {min_range}, pnormal: {pnormal}, indices: {indices}"
-        )
+            cpoint = s1 if t2 is LineSegment else s2
 
         return {
             "point": cpoint,
