@@ -170,26 +170,24 @@ class TestController:
 
     def draw_collision(self, collision: Collision):
         # logger.debug(f"drawing collision object {collision}")
-        if collision.point is not None:
-            self.drawers[np.ndarray](collision.point)
-            if collision.penetration_vector is not None:
-                try:
-                    pygame.draw.line(
-                        self.testframe.screen,
-                        colors["yellow"],
-                        cartesian_to_pygame_screen(
-                            collision.point, *self.testframe.size
-                        ),
-                        cartesian_to_pygame_screen(
-                            collision.point + collision.penetration_vector,
-                            *self.testframe.size,
-                        ),
-                    )
-                except:
-                    return
-        if collision.points is not None:
-            for p in collision.points:
-                self.drawers[np.ndarray](p)
+        lsd = self.drawers[LineSegment]
+        pd = self.drawers[np.ndarray]
+        if collision.details is not None:
+            if collision.point is not None:
+                penetration = LineSegment(
+                    collision.point, collision.point + collision.penetration_vector
+                )
+                lsd(penetration)
+            else:
+                lsd(collision.collision_structures[0])
+                lsd(collision.collision_structures[1])
+        else:
+            if collision.point is not None:
+                pd(collision.point)
+            if collision.points is not None:
+                for p in collision.points:
+                    pd(p)
+                
 
     def collision_testing(self):
         for comb in itertools.combinations(self.structures, 2):
@@ -254,8 +252,9 @@ def main():
         [],
         mytestframe,
     )
-    mycontroller.structures += mycontroller.random_polygons(10)
-    mycontroller.structures += mycontroller.random_lines(0)
+    mycontroller.structures += mycontroller.random_polygons(4)
+    mycontroller.structures += mycontroller.random_lines(3)
+    
 
     mycontroller.mainloop(framerate=60)
 
